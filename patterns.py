@@ -1,9 +1,7 @@
 import re
 
 patterns_tags = [
-    (re.compile(r"(wedding|bride|groom|marriage|nuptial|planning)", re.IGNORECASE), "Wedding Planning"),
-    (re.compile(r"(rustic|venue|events|photographer|jewelry|bands)", re.IGNORECASE), "Wedding Planning"),
-    (re.compile(r"(computer|technology|hardware|desktop|gaming|graphics cards|processors|cooling|motherboards|ssd|hdd)", re.IGNORECASE), "Computer Hardware and Technology"),
-    (re.compile(r"(online|browsing|internet|web|email)", re.IGNORECASE), "Online Activities and Browsing"),
-    (re.compile(r"(facilities|services|library|weather|inbox)", re.IGNORECASE), "Miscellaneous")
+    (re.compile(r"\b(computer|desktop|gaming|MSI|Lenovo|Acer|Asus|memory express|clearance|AMD|PassMark|GeForce|RTX|Vancouver|power supplies)\b", re.IGNORECASE), "COMPUTER HARDWARE AND TECHNOLOGY"),
+    (re.compile(r"\b(library|weather|inbox|email)\b", re.IGNORECASE), "MISCELLANEOUS"),
+    (re.compile(r"\b(wedding|bride|groom|marriage|planning|rustic|venue|events|photographer|jewelry|bands|DJ|photography|cake)\b", re.IGNORECASE), "WEDDING PLANNING")
 ]

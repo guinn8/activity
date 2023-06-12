@@ -60,6 +60,41 @@ def filter_keyvals(events: List[Dict[str, Any]], key: str, values: List[Any]) ->
     """Filter events based on values of a specific key."""
     return [event for event in events if event["data"].get(key) in values]
 
+def process_events(merged_events, local_tz_obj, patterns_tags):
+    TITLE_LEN = 64
+    tagged_events = []
+    for event in merged_events:
+        if event['duration'] > 0.0:
+            timestamp = datetime.fromisoformat(event['timestamp'].replace("Z", "+00:00"))
+            local_timestamp = timestamp.astimezone(local_tz_obj).strftime('%Y-%m-%d %H:%M')
+            duration_minutes = round(event['duration'] / 60, 1)
+            title = event['data']['title'][:TITLE_LEN]
+            
+            event = tag_event(event, patterns_tags)
+            tagged_events.append((local_timestamp, duration_minutes, event['data']['app'], title, event.get('tag', '')))
+
+    tagged_events.sort(key=lambda x: x[4])  # Sort by tag
+    return tagged_events
+
+def merge_events(date):
+    afk_bucket = find_bucket("aw-watcher-afk_")
+    window_bucket = find_bucket("aw-watcher-window_")
+    afk_events = query_bucket(afk_bucket, date, local_tz)
+    window_events = query_bucket(window_bucket, date, local_tz)
+    window_events = filter_period_intersect(window_events, filter_keyvals(afk_events, "status", ["not-afk"]))
+    return merge_events_by_keys(window_events, ["app", "title"])
+
+def group_activities(tagged_events):
+    group_activities = {}
+    for event in tagged_events:
+        tag = event[4]
+        duration = event[1]
+        if tag not in group_activities:
+            group_activities[tag] = duration
+        else:
+            group_activities[tag] += duration
+    return group_activities
+
 def main():
     """Main function to run the script."""
     parser = argparse.ArgumentParser()
@@ -67,25 +102,17 @@ def main():
     args = parser.parse_args()
     date = args.date
 
-    afk_bucket = find_bucket("aw-watcher-afk_")
-    window_bucket = find_bucket("aw-watcher-window_")
-    afk_events = query_bucket(afk_bucket, date, local_tz)
-    window_events = query_bucket(window_bucket, date, local_tz)
-    window_events = filter_period_intersect(window_events, filter_keyvals(afk_events, "status", ["not-afk"]))
-    merged_events = merge_events_by_keys(window_events, ["app", "title"])
-    local_tz_obj = pytz.timezone(local_tz)
+    print("Title,Total Duration (min)")
+    tagged_events = process_events(merge_events(date), pytz.timezone(local_tz), patterns_tags)
+    groups = group_activities(tagged_events)
 
-    print("Timestamp,Duration (min),App,Title,Tag")
-    for event in merged_events:
-        if event['duration'] > 0.0:
-            timestamp = datetime.fromisoformat(event['timestamp'].replace("Z", "+00:00"))
-            local_timestamp = timestamp.astimezone(local_tz_obj).strftime('%Y-%m-%d %H:%M')
-            duration_minutes = round(event['duration'] / 60, 1)
-            title = event['data']['title'][:32]
-            
-            event = tag_event(event, patterns_tags)
-            print(f"{local_timestamp},{duration_minutes},{event['data']['app']},{title},{event.get('tag', '')}")
-
+    for tag, total_duration in groups.items():
+        print()
+        print(f"{tag.upper()},{round(total_duration, 1)}")
+        for event in tagged_events:
+            if event[4] == tag:
+                print(f"{event[3]}")
+                # print(f"{event[0]},{event[1]},{event[2]},{event[3]},{event[4]}")
 
 if __name__ == "__main__":
     main()
